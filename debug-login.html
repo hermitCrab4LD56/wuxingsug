@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录调试页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #40a9ff;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .debug-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+        .error {
+            background-color: #fff5f5;
+            border-left-color: #e53e3e;
+            color: #e53e3e;
+        }
+        .success {
+            background-color: #f0fff4;
+            border-left-color: #38a169;
+            color: #38a169;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            background: #f8f9fa;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>登录功能调试</h2>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="phone">手机号:</label>
+                <input type="text" id="phone" value="13800138000" required>
+            </div>
+            <div class="form-group">
+                <label for="password">密码:</label>
+                <input type="password" id="password" value="123456" required>
+            </div>
+            <button type="submit" id="loginBtn">登录</button>
+        </form>
+
+        <div id="debugInfo" class="debug-info" style="display: none;">
+            <h3>调试信息</h3>
+            <div id="debugContent"></div>
+        </div>
+
+        <div id="logs">
+            <h3>请求日志</h3>
+            <div id="logContent"></div>
+        </div>
+    </div>
+
+    <script>
+        const debugInfo = document.getElementById('debugInfo');
+        const debugContent = document.getElementById('debugContent');
+        const logContent = document.getElementById('logContent');
+        const loginBtn = document.getElementById('loginBtn');
+
+        function addLog(message, type = 'info') {
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            logContent.appendChild(logEntry);
+            logContent.scrollTop = logContent.scrollHeight;
+        }
+
+        function showDebugInfo(content, isError = false) {
+            debugInfo.style.display = 'block';
+            debugInfo.className = `debug-info ${isError ? 'error' : 'success'}`;
+            debugContent.innerHTML = content;
+        }
+
+        // 检查环境信息
+        addLog(`当前URL: ${window.location.href}`);
+        addLog(`User Agent: ${navigator.userAgent}`);
+        addLog(`是否HTTPS: ${window.location.protocol === 'https:'}`);
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const phone = document.getElementById('phone').value;
+            const password = document.getElementById('password').value;
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = '登录中...';
+            
+            addLog('开始登录流程');
+            addLog(`手机号: ${phone}`);
+            
+            try {
+                // 检查API基础URL
+                const baseURL = window.location.origin + '/api';
+                addLog(`API基础URL: ${baseURL}`);
+                
+                const loginURL = `${baseURL}/auth/login`;
+                addLog(`登录URL: ${loginURL}`);
+                
+                const requestData = { phone, password };
+                addLog(`请求数据: ${JSON.stringify(requestData)}`);
+                
+                // 发送登录请求
+                addLog('发送登录请求...');
+                const response = await fetch(loginURL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                addLog(`响应状态: ${response.status} ${response.statusText}`);
+                addLog(`响应头: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`);
+                
+                const responseText = await response.text();
+                addLog(`响应原始内容: ${responseText}`);
+                
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                    addLog(`解析后的响应数据: ${JSON.stringify(data, null, 2)}`);
+                } catch (parseError) {
+                    addLog(`JSON解析错误: ${parseError.message}`, 'error');
+                    throw new Error(`无法解析响应: ${responseText}`);
+                }
+                
+                if (response.ok && data.success) {
+                    addLog('登录成功！');
+                    
+                    // 保存token
+                    if (data.data && data.data.token) {
+                        localStorage.setItem('token', data.data.token);
+                        addLog(`Token已保存: ${data.data.token}`);
+                    }
+                    
+                    showDebugInfo(`
+                        <h4>登录成功！</h4>
+                        <p><strong>消息:</strong> ${data.message}</p>
+                        <p><strong>Token:</strong> ${data.data.token}</p>
+                        <p><strong>用户信息:</strong></p>
+                        <pre>${JSON.stringify(data.data.user, null, 2)}</pre>
+                    `);
+                } else {
+                    addLog(`登录失败: ${data.message || '未知错误'}`, 'error');
+                    showDebugInfo(`
+                        <h4>登录失败</h4>
+                        <p><strong>错误消息:</strong> ${data.message || '未知错误'}</p>
+                        <p><strong>完整响应:</strong></p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `, true);
+                }
+            } catch (error) {
+                addLog(`网络错误: ${error.message}`, 'error');
+                showDebugInfo(`
+                    <h4>网络错误</h4>
+                    <p><strong>错误信息:</strong> ${error.message}</p>
+                    <p><strong>错误类型:</strong> ${error.constructor.name}</p>
+                    <p><strong>Stack Trace:</strong></p>
+                    <pre>${error.stack || '无堆栈信息'}</pre>
+                `, true);
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = '登录';
+            }
+        });
+
+        // 页面加载完成后的检查
+        window.addEventListener('load', function() {
+            addLog('页面加载完成');
+            
+            // 检查localStorage
+            const existingToken = localStorage.getItem('token');
+            if (existingToken) {
+                addLog(`发现已存在的token: ${existingToken}`);
+            } else {
+                addLog('未发现已存在的token');
+            }
+        });
+    </script>
+</body>
+</html>

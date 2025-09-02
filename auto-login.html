@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>自动登录测试</title>
+</head>
+<body>
+    <h1>自动登录测试</h1>
+    <div id="status">正在登录...</div>
+    
+    <script>
+        async function autoLogin() {
+            const statusDiv = document.getElementById('status');
+            
+            try {
+                // 清除现有存储
+                localStorage.clear();
+                statusDiv.innerHTML = '已清除现有存储，正在登录...';
+                
+                // 登录请求
+                const response = await fetch('http://localhost:3001/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phone: '13800138000',
+                        password: '123456'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 保存token和用户信息
+                    localStorage.setItem('token', data.data.token);
+                    
+                    // 创建Zustand存储格式
+                    const storeData = {
+                        state: {
+                            user: data.data.user,
+                            baziInfo: null,
+                            dailyAdvice: null
+                        },
+                        version: 0
+                    };
+                    localStorage.setItem('wuxing-app-storage', JSON.stringify(storeData));
+                    
+                    statusDiv.innerHTML = '✅ 登录成功！正在跳转到Profile页面...';
+                    
+                    // 跳转到Profile页面
+                    setTimeout(() => {
+                        window.location.href = '/profile';
+                    }, 1000);
+                } else {
+                    statusDiv.innerHTML = '❌ 登录失败: ' + data.message;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = '❌ 登录错误: ' + error.message;
+                console.error('登录错误:', error);
+            }
+        }
+        
+        // 页面加载后自动登录
+        autoLogin();
+    </script>
+</body>
+</html>

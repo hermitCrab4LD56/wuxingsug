@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>详细登录调试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .debug-info {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>详细登录调试页面</h1>
+        <p>当前环境: <span id="environment"></span></p>
+        <p>API Base URL: <span id="baseUrl"></span></p>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="phone">手机号:</label>
+                <input type="text" id="phone" name="phone" value="13800138000" required>
+            </div>
+            <div class="form-group">
+                <label for="password">密码:</label>
+                <input type="password" id="password" name="password" value="123456" required>
+            </div>
+            <button type="submit" id="loginBtn">登录</button>
+        </form>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // 显示环境信息
+        const isProd = window.location.hostname !== 'localhost';
+        const baseUrl = isProd ? '/api' : 'http://localhost:3001/api';
+        
+        document.getElementById('environment').textContent = isProd ? '生产环境' : '开发环境';
+        document.getElementById('baseUrl').textContent = baseUrl;
+        
+        function showResult(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+        }
+        
+        function logDebugInfo(info) {
+            console.log('Debug Info:', info);
+            const debugDiv = document.createElement('div');
+            debugDiv.className = 'debug-info';
+            debugDiv.textContent = `Debug: ${JSON.stringify(info, null, 2)}`;
+            document.getElementById('result').appendChild(debugDiv);
+        }
+        
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const phone = document.getElementById('phone').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = '登录中...';
+            
+            showResult('开始登录请求...', 'info');
+            
+            try {
+                const requestData = { phone, password };
+                const requestUrl = `${baseUrl}/auth/login`;
+                
+                logDebugInfo({
+                    requestUrl,
+                    requestData,
+                    timestamp: new Date().toISOString()
+                });
+                
+                const response = await fetch(requestUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                logDebugInfo({
+                    responseStatus: response.status,
+                    responseStatusText: response.statusText,
+                    responseHeaders: Object.fromEntries(response.headers.entries())
+                });
+                
+                const responseText = await response.text();
+                
+                logDebugInfo({
+                    responseText,
+                    responseTextLength: responseText.length
+                });
+                
+                let responseData;
+                try {
+                    responseData = JSON.parse(responseText);
+                } catch (parseError) {
+                    throw new Error(`JSON解析失败: ${parseError.message}\n原始响应: ${responseText}`);
+                }
+                
+                if (response.ok) {
+                    showResult(`登录成功!\n响应数据: ${JSON.stringify(responseData, null, 2)}`, 'success');
+                    
+                    // 如果有token，保存到localStorage
+                    if (responseData.token) {
+                        localStorage.setItem('token', responseData.token);
+                        logDebugInfo({ tokenSaved: responseData.token });
+                    }
+                } else {
+                    showResult(`登录失败 (${response.status}): ${JSON.stringify(responseData, null, 2)}`, 'error');
+                }
+                
+            } catch (error) {
+                console.error('登录错误:', error);
+                showResult(`登录错误: ${error.message}\n\n完整错误信息: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`, 'error');
+                
+                logDebugInfo({
+                    errorType: error.constructor.name,
+                    errorMessage: error.message,
+                    errorStack: error.stack
+                });
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = '登录';
+            }
+        });
+        
+        // 页面加载时的调试信息
+        logDebugInfo({
+            pageLoaded: true,
+            userAgent: navigator.userAgent,
+            currentUrl: window.location.href,
+            referrer: document.referrer
+        });
+    </script>
+</body>
+</html>

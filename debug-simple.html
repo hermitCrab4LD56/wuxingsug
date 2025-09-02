@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简单调试页面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(45deg, #ff0000, #00ff00, #0000ff, #ffff00);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        .main-text {
+            font-size: 4rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            text-align: center;
+            margin-bottom: 2rem;
+            animation: pulse 2s infinite;
+        }
+        
+        .sub-text {
+            font-size: 2rem;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .test-canvas {
+            border: 10px solid #ffffff;
+            background-color: #000000;
+            width: 400px;
+            height: 300px;
+            margin: 1rem;
+        }
+        
+        .info-box {
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 1rem;
+            border-radius: 10px;
+            margin: 1rem;
+            text-align: center;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-text">🔍 浏览器渲染测试</div>
+    <div class="sub-text">如果您能看到这个页面，说明浏览器工作正常</div>
+    
+    <canvas id="testCanvas" class="test-canvas"></canvas>
+    
+    <div class="info-box">
+        <p>✅ HTML渲染正常</p>
+        <p>✅ CSS样式正常</p>
+        <p id="canvasStatus">⏳ 正在测试Canvas...</p>
+        <p id="timestamp"></p>
+    </div>
+    
+    <script>
+        console.log('🚀 简单调试页面开始加载');
+        
+        // 显示时间戳
+        document.getElementById('timestamp').textContent = '加载时间: ' + new Date().toLocaleTimeString();
+        
+        // 测试Canvas
+        const canvas = document.getElementById('testCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusElement = document.getElementById('canvasStatus');
+        
+        if (ctx) {
+            // 设置Canvas尺寸
+            canvas.width = 400;
+            canvas.height = 300;
+            
+            // 绘制彩色背景
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, '#ff0000');
+            gradient.addColorStop(0.25, '#00ff00');
+            gradient.addColorStop(0.5, '#0000ff');
+            gradient.addColorStop(0.75, '#ffff00');
+            gradient.addColorStop(1, '#ff00ff');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制文字
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Canvas正常工作!', canvas.width/2, canvas.height/2);
+            
+            // 绘制一些图形
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(100, 100, 30, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(300, 200, 60, 60);
+            
+            statusElement.textContent = '✅ Canvas渲染成功';
+            statusElement.style.color = '#00ff00';
+            
+            console.log('✅ Canvas渲染完成');
+        } else {
+            statusElement.textContent = '❌ Canvas不可用';
+            statusElement.style.color = '#ff0000';
+            console.error('❌ 无法获取Canvas上下文');
+        }
+        
+        // 添加点击事件测试
+        document.body.addEventListener('click', function(e) {
+            console.log('👆 页面点击:', e.clientX, e.clientY);
+            
+            // 创建点击效果
+            const ripple = document.createElement('div');
+            ripple.style.position = 'fixed';
+            ripple.style.left = e.clientX + 'px';
+            ripple.style.top = e.clientY + 'px';
+            ripple.style.width = '20px';
+            ripple.style.height = '20px';
+            ripple.style.background = 'rgba(255,255,255,0.8)';
+            ripple.style.borderRadius = '50%';
+            ripple.style.transform = 'translate(-50%, -50%)';
+            ripple.style.pointerEvents = 'none';
+            ripple.style.animation = 'pulse 1s ease-out';
+            
+            document.body.appendChild(ripple);
+            
+            setTimeout(() => {
+                document.body.removeChild(ripple);
+            }, 1000);
+        });
+        
+        console.log('🎉 简单调试页面加载完成');
+    </script>
+</body>
+</html>

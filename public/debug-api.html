@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API调试页面</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 4px; white-space: pre-wrap; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        button { padding: 8px 16px; margin: 5px; cursor: pointer; }
+        input { padding: 8px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>API调试页面</h1>
+    
+    <div class="test-section">
+        <h3>1. 测试登录API</h3>
+        <input type="text" id="phone" value="13800138000" placeholder="手机号">
+        <input type="password" id="password" value="123456" placeholder="密码">
+        <button onclick="testLogin()">登录</button>
+        <div id="login-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. 测试获取用户信息API</h3>
+        <button onclick="testGetProfile()">获取用户信息</button>
+        <div id="profile-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. 测试健康检查API</h3>
+        <button onclick="testHealth()">健康检查</button>
+        <div id="health-result"></div>
+    </div>
+    
+    <script>
+        let currentToken = null;
+        
+        function showResult(elementId, message, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="result ${isSuccess ? 'success' : 'error'}">${message}</div>`;
+        }
+        
+        async function testHealth() {
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+                showResult('health-result', `健康检查成功:\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                showResult('health-result', `健康检查失败: ${error.message}`, false);
+            }
+        }
+        
+        async function testLogin() {
+            const phone = document.getElementById('phone').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ phone, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    currentToken = data.data.token;
+                    showResult('login-result', `登录成功:\n${JSON.stringify(data, null, 2)}`);
+                } else {
+                    showResult('login-result', `登录失败:\n${JSON.stringify(data, null, 2)}`, false);
+                }
+            } catch (error) {
+                showResult('login-result', `登录请求失败: ${error.message}`, false);
+            }
+        }
+        
+        async function testGetProfile() {
+            if (!currentToken) {
+                showResult('profile-result', '请先登录获取token', false);
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/auth/profile', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    showResult('profile-result', `获取用户信息成功:\n${JSON.stringify(data, null, 2)}`);
+                } else {
+                    showResult('profile-result', `获取用户信息失败:\n${JSON.stringify(data, null, 2)}`, false);
+                }
+            } catch (error) {
+                showResult('profile-result', `获取用户信息请求失败: ${error.message}`, false);
+            }
+        }
+        
+        // 页面加载时自动测试健康检查
+        window.addEventListener('load', function() {
+            console.log('页面加载完成，开始测试...');
+            testHealth();
+        });
+    </script>
+</body>
+</html>

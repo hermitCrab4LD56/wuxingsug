@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>调试八字信息获取问题</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background: #f0f0f0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success { background: #f6ffed; color: #52c41a; }
+        .error { background: #fff2f0; color: #ff4d4f; }
+        .warning { background: #fffbe6; color: #faad14; }
+        .info { background: #e6f7ff; color: #1890ff; }
+        .highlight {
+            background: #fff2e8;
+            padding: 10px;
+            border-left: 4px solid #fa8c16;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 调试八字信息获取问题</h1>
+        
+        <div class="highlight">
+            <strong>问题分析:</strong> Home组件在第89-99行有条件渲染逻辑：如果用户已登录但没有八字信息，会显示引导填写信息的页面，这可能导致白屏。
+        </div>
+        
+        <div class="step">
+            <h3>步骤1: 登录并检查用户状态</h3>
+            <button class="button" onclick="loginAndCheckUser()">登录张三丰并检查状态</button>
+            <div id="userResult" class="result"></div>
+        </div>
+        
+        <div class="step">
+            <h3>步骤2: 检查八字信息API</h3>
+            <button class="button" onclick="checkBaziAPI()">检查八字信息API</button>
+            <div id="baziResult" class="result"></div>
+        </div>
+        
+        <div class="step">
+            <h3>步骤3: 模拟Home组件逻辑</h3>
+            <button class="button" onclick="simulateHomeLogic()">模拟Home组件渲染逻辑</button>
+            <div id="homeLogicResult" class="result"></div>
+        </div>
+        
+        <div class="step">
+            <h3>步骤4: 检查用户出生信息</h3>
+            <button class="button" onclick="checkUserBirthInfo()">检查用户出生信息完整性</button>
+            <div id="birthInfoResult" class="result"></div>
+        </div>
+        
+        <div class="step">
+            <h3>步骤5: 访问Home页面</h3>
+            <p>在完成上述检查后，访问Home页面:</p>
+            <a href="http://localhost:5173/home" target="_blank" class="button">🏠 打开Home页面</a>
+            <div class="info result">根据上述检查结果，Home页面应该能正常显示</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            element.className = `result ${type}`;
+            element.textContent = `[${timestamp}] ${message}`;
+            console.log(`[${timestamp}] ${message}`);
+        }
+        
+        async function loginAndCheckUser() {
+            try {
+                log('userResult', '正在登录并检查用户状态...', 'warning');
+                
+                // 清理环境
+                localStorage.clear();
+                
+                // 登录张三丰
+                const loginResponse = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phone: '13800138000',
+                        password: '123456'
+                    })
+                });
+                
+                if (!loginResponse.ok) {
+                    throw new Error(`登录失败: HTTP ${loginResponse.status}`);
+                }
+                
+                const loginData = await loginResponse.json();
+                console.log('登录响应:', loginData);
+                
+                if (!loginData.success || !loginData.data?.token || !loginData.data?.user) {
+                    throw new Error('登录响应格式错误');
+                }
+                
+                const user = loginData.data.user;
+                const token = loginData.data.token;
+                
+                // 保存token
+                localStorage.setItem('token', token);
+                
+                // 保存用户状态
+                const storeData = {
+                    state: {
+                        user: user,
+                        isAuthenticated: true,
+                        baziInfo: null,
+                        dailyAdvice: null,
+                        showWelcomeModal: false
+                    },
+                    version: 0
+                };
+                localStorage.setItem('wuxing-app-storage', JSON.stringify(storeData));
+                
+                // 分析用户信息
+                let analysis = `✅ 登录成功!\n\n`;
+                analysis += `👤 用户信息:\n`;
+                analysis += `   - 姓名: ${user.name}\n`;
+                analysis += `   - 手机: ${user.phone}\n`;
+                analysis += `   - 性别: ${user.gender || '未设置'}\n`;
+                analysis += `   - 出生日期: ${user.birth_date || '未设置'}\n`;
+                analysis += `   - 出生时间: ${user.birth_time || '未设置'}\n`;
+                analysis += `   - 出生地点: ${user.birth_location || '未设置'}\n\n`;
+                
+                // 检查出生信息完整性
+                const hasBirthInfo = user.birth_date && user.birth_time;
+                analysis += `🔍 出生信息完整性:\n`;
+                analysis += `   - 出生信息完整: ${hasBirthInfo ? '是' : '否'}\n`;
+                
+                if (!hasBirthInfo) {
+                    analysis += `   ⚠️ 缺少出生信息，这可能导致Home组件显示引导页面\n`;
+                } else {
+                    analysis += `   ✅ 出生信息完整，应该能获取八字信息\n`;
+                }
+                
+                log('userResult', analysis, hasBirthInfo ? 'success' : 'warning');
+                
+            } catch (error) {
+                console.error('登录检查失败:', error);
+                log('userResult', `❌ 登录检查失败: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkBaziAPI() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('请先登录');
+                }
+                
+                log('baziResult', '正在检查八字信息API...', 'warning');
+                
+                const response = await fetch(`${API_BASE}/bazi/info`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                let result = `🔮 八字信息API检查:\n\n`;
+                result += `📡 API响应状态: ${response.status} ${response.statusText}\n\n`;
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('八字API响应:', data);
+                    
+                    if (data.success && data.data) {
+                        const baziInfo = data.data;
+                        result += `✅ 八字信息获取成功:\n`;
+                        result += `   - 年柱: ${baziInfo.year_pillar || '未知'}\n`;
+                        result += `   - 月柱: ${baziInfo.month_pillar || '未知'}\n`;
+                        result += `   - 日柱: ${baziInfo.day_pillar || '未知'}\n`;
+                        result += `   - 时柱: ${baziInfo.hour_pillar || '未知'}\n`;
+                        result += `   - 五行分析: ${JSON.stringify(baziInfo.wuxing_analysis)}\n`;
+                        result += `   - 主要五行: ${baziInfo.primary_element || '未知'}\n\n`;
+                        result += `🎯 结论: 有八字信息，Home组件应该正常显示`;
+                        
+                        // 更新localStorage中的八字信息
+                        const storeData = JSON.parse(localStorage.getItem('wuxing-app-storage') || '{}');
+                        if (storeData.state) {
+                            storeData.state.baziInfo = baziInfo;
+                            localStorage.setItem('wuxing-app-storage', JSON.stringify(storeData));
+                        }
+                        
+                        log('baziResult', result, 'success');
+                    } else {
+                        result += `⚠️ 八字信息为空或格式错误:\n`;
+                        result += `   响应数据: ${JSON.stringify(data)}\n\n`;
+                        result += `🎯 结论: 没有八字信息，Home组件会显示引导填写页面`;
+                        log('baziResult', result, 'warning');
+                    }
+                } else {
+                    const errorText = await response.text();
+                    result += `❌ API调用失败:\n`;
+                    result += `   错误信息: ${errorText}\n\n`;
+                    result += `🎯 结论: API调用失败，Home组件会显示引导填写页面`;
+                    log('baziResult', result, 'error');
+                }
+                
+            } catch (error) {
+                console.error('八字API检查失败:', error);
+                log('baziResult', `❌ 八字API检查失败: ${error.message}`, 'error');
+            }
+        }
+        
+        function simulateHomeLogic() {
+            try {
+                const storeData = localStorage.getItem('wuxing-app-storage');
+                if (!storeData) {
+                    throw new Error('没有用户状态数据');
+                }
+                
+                const parsed = JSON.parse(storeData);
+                const user = parsed.state?.user;
+                const baziInfo = parsed.state?.baziInfo;
+                
+                let simulation = `🏠 Home组件渲染逻辑模拟:\n\n`;
+                
+                // 模拟Home组件的条件判断
+                if (!user) {
+                    simulation += `❌ 条件1: !user = true\n`;
+                    simulation += `   渲染结果: 显示登录引导页面\n`;
+                    simulation += `   页面内容: "请先登录以获取个性化建议"`;
+                    log('homeLogicResult', simulation, 'error');
+                    return;
+                }
+                
+                simulation += `✅ 条件1: !user = false (用户已登录)\n`;
+                simulation += `   用户: ${user.name}\n\n`;
+                
+                if (user && !baziInfo) {
+                    simulation += `⚠️ 条件2: user && !baziInfo = true\n`;
+                    simulation += `   渲染结果: 显示填写出生信息引导页面\n`;
+                    simulation += `   页面内容: "欢迎，${user.name}！为了为您提供精准的五行穿衣建议，请先完善您的出生信息"\n`;
+                    simulation += `   按钮: "填写出生信息" -> 跳转到 /profile\n\n`;
+                    simulation += `🎯 这就是白屏的原因！用户看到的是引导页面，不是主页面内容`;
+                    log('homeLogicResult', simulation, 'warning');
+                    return;
+                }
+                
+                simulation += `✅ 条件2: user && !baziInfo = false (有八字信息)\n`;
+                simulation += `   八字信息: 存在\n`;
+                simulation += `   渲染结果: 显示完整的Home页面内容\n`;
+                simulation += `   页面内容: 用户欢迎区域 + 八字信息卡片 + 今日建议等`;
+                
+                log('homeLogicResult', simulation, 'success');
+                
+            } catch (error) {
+                log('homeLogicResult', `❌ 模拟失败: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkUserBirthInfo() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('请先登录');
+                }
+                
+                log('birthInfoResult', '正在检查用户出生信息...', 'warning');
+                
+                // 获取用户详细信息
+                const response = await fetch(`${API_BASE}/auth/profile`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`获取用户信息失败: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const user = data.data?.user;
+                
+                if (!user) {
+                    throw new Error('用户信息为空');
+                }
+                
+                let analysis = `👤 用户出生信息详细检查:\n\n`;
+                analysis += `基本信息:\n`;
+                analysis += `   - 姓名: ${user.name}\n`;
+                analysis += `   - 性别: ${user.gender || '❌ 未设置'}\n`;
+                analysis += `   - 出生日期: ${user.birth_date || '❌ 未设置'}\n`;
+                analysis += `   - 出生时间: ${user.birth_time || '❌ 未设置'}\n`;
+                analysis += `   - 出生地点: ${user.birth_location || '❌ 未设置'}\n\n`;
+                
+                // 检查必要信息
+                const requiredFields = {
+                    '出生日期': user.birth_date,
+                    '出生时间': user.birth_time
+                };
+                
+                const missingFields = Object.entries(requiredFields)
+                    .filter(([_, value]) => !value)
+                    .map(([field, _]) => field);
+                
+                if (missingFields.length > 0) {
+                    analysis += `❌ 缺少必要信息: ${missingFields.join(', ')}\n`;
+                    analysis += `\n🔧 解决方案:\n`;
+                    analysis += `1. 访问 /profile 页面\n`;
+                    analysis += `2. 填写完整的出生信息\n`;
+                    analysis += `3. 保存后重新访问Home页面\n\n`;
+                    analysis += `💡 这就是为什么Home页面显示引导页面而不是主要内容的原因！`;
+                    log('birthInfoResult', analysis, 'warning');
+                } else {
+                    analysis += `✅ 出生信息完整\n`;
+                    analysis += `\n🎯 用户应该能够正常获取八字信息并看到完整的Home页面`;
+                    log('birthInfoResult', analysis, 'success');
+                }
+                
+            } catch (error) {
+                console.error('出生信息检查失败:', error);
+                log('birthInfoResult', `❌ 检查失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 页面加载时显示说明
+        window.onload = function() {
+            console.log('🔍 八字信息调试工具已加载');
+            console.log('这个工具将帮助诊断Home页面白屏问题');
+        };
+    </script>
+</body>
+</html>

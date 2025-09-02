@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试Home页面白屏问题</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #40a9ff;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success {
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+            color: #52c41a;
+        }
+        .error {
+            background: #fff2f0;
+            border: 1px solid #ffccc7;
+            color: #ff4d4f;
+        }
+        .info {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            color: #1890ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Home页面白屏问题诊断</h1>
+        
+        <div class="test-section">
+            <h3>1. 测试种子用户登录并访问Home页面</h3>
+            <button class="test-button" onclick="testSeedUserLogin('13800138000')">测试张三丰登录</button>
+            <button class="test-button" onclick="testSeedUserLogin('13900139000')">测试李小龙登录</button>
+            <button class="test-button" onclick="testSeedUserLogin('13700137000')">测试王阳明登录</button>
+            <button class="test-button" onclick="testSeedUserLogin('13600136000')">测试孔子登录</button>
+            <div id="loginResult" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>2. 检查当前用户状态</h3>
+            <button class="test-button" onclick="checkUserStatus()">检查用户状态</button>
+            <div id="userStatusResult" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>3. 测试API接口</h3>
+            <button class="test-button" onclick="testProfileAPI()">测试Profile API</button>
+            <button class="test-button" onclick="testBaziAPI()">测试八字API</button>
+            <div id="apiResult" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>4. 直接访问Home页面</h3>
+            <button class="test-button" onclick="openHomePage()">打开Home页面</button>
+            <div id="homePageResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            element.className = `result ${type}`;
+            element.textContent = `[${timestamp}] ${message}`;
+            console.log(`[${timestamp}] ${message}`);
+        }
+        
+        async function testSeedUserLogin(phone) {
+            try {
+                log('loginResult', `开始测试用户 ${phone} 登录...`, 'info');
+                
+                // 1. 登录
+                const loginResponse = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phone: phone,
+                        password: '123456'
+                    })
+                });
+                
+                if (!loginResponse.ok) {
+                    throw new Error(`登录失败: ${loginResponse.status}`);
+                }
+                
+                const loginData = await loginResponse.json();
+                console.log('登录响应:', loginData);
+                
+                if (!loginData.success || !loginData.data?.token) {
+                    throw new Error('登录响应格式错误或缺少token');
+                }
+                
+                const token = loginData.data.token;
+                const user = loginData.data.user;
+                
+                // 2. 保存到localStorage
+                localStorage.setItem('token', token);
+                
+                // 3. 保存用户状态到zustand store
+                const storeData = {
+                    state: {
+                        user: user,
+                        isAuthenticated: true,
+                        baziInfo: null
+                    },
+                    version: 0
+                };
+                localStorage.setItem('wuxing-app-storage', JSON.stringify(storeData));
+                
+                // 4. 测试获取用户信息
+                const profileResponse = await fetch(`${API_BASE}/auth/profile`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!profileResponse.ok) {
+                    throw new Error(`获取用户信息失败: ${profileResponse.status}`);
+                }
+                
+                const profileData = await profileResponse.json();
+                console.log('用户信息响应:', profileData);
+                
+                // 5. 测试获取八字信息
+                const baziResponse = await fetch(`${API_BASE}/bazi/info`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                let baziData = null;
+                if (baziResponse.ok) {
+                    baziData = await baziResponse.json();
+                    console.log('八字信息响应:', baziData);
+                }
+                
+                log('loginResult', 
+                    `✅ 用户 ${user.name} (${phone}) 登录成功!\n` +
+                    `Token: ${token.substring(0, 30)}...\n` +
+                    `用户信息: ${JSON.stringify(user, null, 2)}\n` +
+                    `八字信息: ${baziData ? '已获取' : '未获取'}\n` +
+                    `现在可以访问 http://localhost:5173/home`, 
+                    'success'
+                );
+                
+            } catch (error) {
+                console.error('登录测试失败:', error);
+                log('loginResult', `❌ 登录失败: ${error.message}`, 'error');
+            }
+        }
+        
+        function checkUserStatus() {
+            try {
+                const token = localStorage.getItem('token');
+                const storeData = localStorage.getItem('wuxing-app-storage');
+                
+                let parsedStore = null;
+                if (storeData) {
+                    try {
+                        parsedStore = JSON.parse(storeData);
+                    } catch (e) {
+                        console.error('解析store数据失败:', e);
+                    }
+                }
+                
+                log('userStatusResult', 
+                    `当前用户状态:\n` +
+                    `Token: ${token ? token.substring(0, 30) + '...' : '无'}\n` +
+                    `Store数据: ${storeData ? '存在' : '不存在'}\n` +
+                    `用户: ${parsedStore?.state?.user?.name || '未登录'}\n` +
+                    `认证状态: ${parsedStore?.state?.isAuthenticated || false}\n` +
+                    `八字信息: ${parsedStore?.state?.baziInfo ? '已加载' : '未加载'}`,
+                    token && parsedStore?.state?.user ? 'success' : 'error'
+                );
+                
+            } catch (error) {
+                console.error('检查用户状态失败:', error);
+                log('userStatusResult', `❌ 检查失败: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testProfileAPI() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('未找到token，请先登录');
+                }
+                
+                const response = await fetch(`${API_BASE}/auth/profile`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API请求失败: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('Profile API响应:', data);
+                
+                log('apiResult', 
+                    `✅ Profile API测试成功:\n${JSON.stringify(data, null, 2)}`, 
+                    'success'
+                );
+                
+            } catch (error) {
+                console.error('Profile API测试失败:', error);
+                log('apiResult', `❌ Profile API失败: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testBaziAPI() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('未找到token，请先登录');
+                }
+                
+                const response = await fetch(`${API_BASE}/bazi/info`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API请求失败: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('八字 API响应:', data);
+                
+                log('apiResult', 
+                    `✅ 八字 API测试成功:\n${JSON.stringify(data, null, 2)}`, 
+                    'success'
+                );
+                
+            } catch (error) {
+                console.error('八字 API测试失败:', error);
+                log('apiResult', `❌ 八字 API失败: ${error.message}`, 'error');
+            }
+        }
+        
+        function openHomePage() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    log('homePageResult', '❌ 未找到token，请先登录', 'error');
+                    return;
+                }
+                
+                log('homePageResult', '🔗 正在打开Home页面...', 'info');
+                
+                // 在新窗口打开Home页面
+                const homeWindow = window.open('http://localhost:5173/home', '_blank');
+                
+                if (homeWindow) {
+                    log('homePageResult', 
+                        `✅ Home页面已在新窗口打开\n` +
+                        `如果看到白屏，请检查浏览器控制台错误\n` +
+                        `URL: http://localhost:5173/home`, 
+                        'success'
+                    );
+                } else {
+                    log('homePageResult', '❌ 无法打开新窗口，可能被浏览器阻止', 'error');
+                }
+                
+            } catch (error) {
+                console.error('打开Home页面失败:', error);
+                log('homePageResult', `❌ 打开失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 页面加载时检查当前状态
+        window.onload = function() {
+            console.log('🔍 Home页面白屏问题诊断工具已加载');
+            checkUserStatus();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>调试Home页面问题</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        .button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #40a9ff;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background: #f0f0f0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { background: #f6ffed; color: #52c41a; }
+        .error { background: #fff2f0; color: #ff4d4f; }
+        .warning { background: #fffbe6; color: #faad14; }
+    </style>
+</head>
+<body>
+    <h1>🔧 调试Home页面白屏问题</h1>
+    
+    <div class="step">
+        <h3>步骤1: 登录种子用户</h3>
+        <button class="button" onclick="loginUser()">登录张三丰 (13800138000)</button>
+        <div id="loginResult" class="result"></div>
+    </div>
+    
+    <div class="step">
+        <h3>步骤2: 检查登录状态</h3>
+        <button class="button" onclick="checkLoginStatus()">检查登录状态</button>
+        <div id="statusResult" class="result"></div>
+    </div>
+    
+    <div class="step">
+        <h3>步骤3: 访问Home页面</h3>
+        <button class="button" onclick="goToHome()">访问Home页面</button>
+        <div id="homeResult" class="result"></div>
+    </div>
+    
+    <div class="step">
+        <h3>步骤4: 检查React应用状态</h3>
+        <button class="button" onclick="checkReactApp()">检查React应用</button>
+        <div id="reactResult" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        
+        function updateResult(id, message, type = 'success') {
+            const element = document.getElementById(id);
+            element.textContent = message;
+            element.className = `result ${type}`;
+            console.log(message);
+        }
+        
+        async function loginUser() {
+            try {
+                updateResult('loginResult', '正在登录...', 'warning');
+                
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phone: '13800138000',
+                        password: '123456'
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('登录响应:', data);
+                
+                if (data.success && data.data.token) {
+                    // 保存token
+                    localStorage.setItem('token', data.data.token);
+                    
+                    // 保存用户状态到zustand store
+                    const storeData = {
+                        state: {
+                            user: data.data.user,
+                            isAuthenticated: true,
+                            baziInfo: null
+                        },
+                        version: 0
+                    };
+                    localStorage.setItem('wuxing-app-storage', JSON.stringify(storeData));
+                    
+                    updateResult('loginResult', 
+                        `✅ 登录成功!\n` +
+                        `用户: ${data.data.user.name}\n` +
+                        `Token: ${data.data.token.substring(0, 30)}...\n` +
+                        `已保存到localStorage`, 
+                        'success'
+                    );
+                } else {
+                    throw new Error('登录失败: ' + JSON.stringify(data));
+                }
+                
+            } catch (error) {
+                console.error('登录错误:', error);
+                updateResult('loginResult', `❌ 登录失败: ${error.message}`, 'error');
+            }
+        }
+        
+        function checkLoginStatus() {
+            try {
+                const token = localStorage.getItem('token');
+                const storeData = localStorage.getItem('wuxing-app-storage');
+                
+                let user = null;
+                if (storeData) {
+                    const parsed = JSON.parse(storeData);
+                    user = parsed.state?.user;
+                }
+                
+                updateResult('statusResult', 
+                    `Token存在: ${!!token}\n` +
+                    `Store数据存在: ${!!storeData}\n` +
+                    `用户信息: ${user ? user.name : '无'}\n` +
+                    `认证状态: ${user ? '已认证' : '未认证'}`,
+                    token && user ? 'success' : 'error'
+                );
+                
+            } catch (error) {
+                console.error('检查状态错误:', error);
+                updateResult('statusResult', `❌ 检查失败: ${error.message}`, 'error');
+            }
+        }
+        
+        function goToHome() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    updateResult('homeResult', '❌ 请先登录', 'error');
+                    return;
+                }
+                
+                updateResult('homeResult', '🔗 正在跳转到Home页面...', 'warning');
+                
+                // 直接跳转到Home页面
+                setTimeout(() => {
+                    window.location.href = 'http://localhost:5173/home';
+                }, 1000);
+                
+            } catch (error) {
+                console.error('跳转错误:', error);
+                updateResult('homeResult', `❌ 跳转失败: ${error.message}`, 'error');
+            }
+        }
+        
+        function checkReactApp() {
+            try {
+                // 检查React应用是否正常运行
+                fetch('http://localhost:5173/')
+                    .then(response => {
+                        if (response.ok) {
+                            updateResult('reactResult', 
+                                `✅ React应用运行正常\n` +
+                                `状态码: ${response.status}\n` +
+                                `URL: http://localhost:5173/`, 
+                                'success'
+                            );
+                        } else {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                    })
+                    .catch(error => {
+                        updateResult('reactResult', `❌ React应用异常: ${error.message}`, 'error');
+                    });
+                    
+            } catch (error) {
+                console.error('检查React应用错误:', error);
+                updateResult('reactResult', `❌ 检查失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 页面加载时自动检查状态
+        window.onload = function() {
+            console.log('🔧 调试工具已加载');
+            checkLoginStatus();
+            checkReactApp();
+        };
+    </script>
+</body>
+</html>

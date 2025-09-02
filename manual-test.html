@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手动测试登录和Home页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .button:hover {
+            background: #40a9ff;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background: #f0f0f0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .success { background: #f6ffed; color: #52c41a; }
+        .error { background: #fff2f0; color: #ff4d4f; }
+        .warning { background: #fffbe6; color: #faad14; }
+        .info { background: #e6f7ff; color: #1890ff; }
+        .highlight {
+            background: #fff2e8;
+            padding: 10px;
+            border-left: 4px solid #fa8c16;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 手动测试登录和Home页面</h1>
+        
+        <div class="highlight">
+            <strong>测试目标:</strong> 重现种子用户登录后访问Home页面出现白屏的问题
+        </div>
+        
+        <div class="step">
+            <h3>步骤1: 清理环境并登录</h3>
+            <button class="button" onclick="clearAndLogin()">清理环境并登录张三丰</button>
+            <div id="loginResult" class="result"></div>
+        </div>
+        
+        <div class="step">
+            <h3>步骤2: 验证登录状态</h3>
+            <button class="button" onclick="checkLoginStatus()">检查登录状态</button>
+            <div id="statusResult" class="result"></div>
+        </div>
+        
+        <div class="step">
+            <h3>步骤3: 访问Home页面</h3>
+            <p>点击下面的链接访问Home页面，观察是否出现白屏:</p>
+            <a href="http://localhost:5173/home" target="_blank" class="button">🏠 打开Home页面 (新窗口)</a>
+            <br><br>
+            <button class="button" onclick="window.open('http://localhost:5173/home', '_blank')">🏠 JavaScript打开Home页面</button>
+            <div class="info result">请在新打开的窗口中观察Home页面是否正常显示，如果出现白屏，请打开开发者工具查看错误信息</div>
+        </div>
+        
+        <div class="step">
+            <h3>步骤4: 检查React应用状态</h3>
+            <button class="button" onclick="checkReactApp()">检查React应用</button>
+            <div id="reactResult" class="result"></div>
+        </div>
+        
+        <div class="step">
+            <h3>步骤5: 测试API接口</h3>
+            <button class="button" onclick="testAPIs()">测试所有API接口</button>
+            <div id="apiResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            element.className = `result ${type}`;
+            element.textContent = `[${timestamp}] ${message}`;
+            console.log(`[${timestamp}] ${message}`);
+        }
+        
+        async function clearAndLogin() {
+            try {
+                log('loginResult', '正在清理环境并登录...', 'warning');
+                
+                // 清理localStorage
+                localStorage.clear();
+                
+                // 登录张三丰
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phone: '13800138000',
+                        password: '123456'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('登录响应:', data);
+                
+                if (!data.success || !data.data?.token || !data.data?.user) {
+                    throw new Error('登录响应格式错误: ' + JSON.stringify(data));
+                }
+                
+                // 保存token
+                localStorage.setItem('token', data.data.token);
+                
+                // 保存用户状态 (zustand格式)
+                const storeData = {
+                    state: {
+                        user: data.data.user,
+                        isAuthenticated: true,
+                        baziInfo: null,
+                        dailyAdvice: null,
+                        showWelcomeModal: false
+                    },
+                    version: 0
+                };
+                localStorage.setItem('wuxing-app-storage', JSON.stringify(storeData));
+                
+                log('loginResult', 
+                    `✅ 登录成功!\n` +
+                    `用户: ${data.data.user.name}\n` +
+                    `手机: ${data.data.user.phone}\n` +
+                    `Token: ${data.data.token}\n` +
+                    `状态已保存到localStorage`, 
+                    'success'
+                );
+                
+            } catch (error) {
+                console.error('登录失败:', error);
+                log('loginResult', `❌ 登录失败: ${error.message}`, 'error');
+            }
+        }
+        
+        function checkLoginStatus() {
+            try {
+                const token = localStorage.getItem('token');
+                const storeData = localStorage.getItem('wuxing-app-storage');
+                
+                let status = '📊 登录状态检查:\n\n';
+                
+                if (!token) {
+                    status += '❌ Token: 不存在\n';
+                } else {
+                    status += `✅ Token: ${token}\n`;
+                }
+                
+                if (!storeData) {
+                    status += '❌ Store数据: 不存在\n';
+                } else {
+                    try {
+                        const parsed = JSON.parse(storeData);
+                        const user = parsed.state?.user;
+                        const isAuth = parsed.state?.isAuthenticated;
+                        
+                        status += `✅ Store数据: 存在\n`;
+                        status += `   - 用户: ${user ? user.name + ' (' + user.phone + ')' : '不存在'}\n`;
+                        status += `   - 认证状态: ${isAuth ? '已认证' : '未认证'}\n`;
+                        status += `   - 八字信息: ${parsed.state?.baziInfo ? '存在' : '不存在'}\n`;
+                        
+                    } catch (e) {
+                        status += `❌ Store数据解析失败: ${e.message}\n`;
+                    }
+                }
+                
+                status += '\n🔍 建议: 如果数据正常，现在可以访问Home页面';
+                
+                log('statusResult', status, token && storeData ? 'success' : 'error');
+                
+            } catch (error) {
+                log('statusResult', `❌ 状态检查失败: ${error.message}`, 'error');
+            }
+        }
+        
+        function checkReactApp() {
+            try {
+                let result = '⚛️ React应用状态检查:\n\n';
+                
+                // 检查React是否加载
+                if (typeof React !== 'undefined') {
+                    result += '✅ React: 已加载\n';
+                } else {
+                    result += '❌ React: 未加载\n';
+                }
+                
+                // 检查DOM
+                const rootElement = document.getElementById('root');
+                if (rootElement) {
+                    result += '✅ Root元素: 存在\n';
+                    result += `   - 子元素数量: ${rootElement.children.length}\n`;
+                    if (rootElement.children.length === 0) {
+                        result += '   ⚠️ Root元素为空，可能是渲染问题\n';
+                    }
+                } else {
+                    result += '❌ Root元素: 不存在\n';
+                }
+                
+                // 检查路由
+                const currentPath = window.location.pathname;
+                result += `📍 当前路径: ${currentPath}\n`;
+                
+                // 检查控制台错误
+                result += '\n💡 提示: 请在浏览器开发者工具中查看Console和Network标签页';
+                
+                log('reactResult', result, 'info');
+                
+            } catch (error) {
+                log('reactResult', `❌ React应用检查失败: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testAPIs() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('请先登录');
+                }
+                
+                log('apiResult', '正在测试API接口...', 'warning');
+                
+                let result = '🔌 API接口测试结果:\n\n';
+                
+                // 测试Profile API
+                try {
+                    const profileResponse = await fetch(`${API_BASE}/auth/profile`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    if (profileResponse.ok) {
+                        const profileData = await profileResponse.json();
+                        result += `✅ Profile API: 正常 (${profileResponse.status})\n`;
+                        result += `   用户: ${profileData.data?.user?.name || '未知'}\n`;
+                    } else {
+                        result += `❌ Profile API: 失败 (${profileResponse.status})\n`;
+                    }
+                } catch (e) {
+                    result += `❌ Profile API: 异常 - ${e.message}\n`;
+                }
+                
+                // 测试八字API
+                try {
+                    const baziResponse = await fetch(`${API_BASE}/bazi/info`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    if (baziResponse.ok) {
+                        const baziData = await baziResponse.json();
+                        result += `✅ 八字 API: 正常 (${baziResponse.status})\n`;
+                        result += `   八字: ${baziData.data?.bazi || '未设置'}\n`;
+                    } else {
+                        result += `❌ 八字 API: 失败 (${baziResponse.status})\n`;
+                    }
+                } catch (e) {
+                    result += `❌ 八字 API: 异常 - ${e.message}\n`;
+                }
+                
+                // 测试每日建议API
+                try {
+                    const today = new Date().toISOString().split('T')[0];
+                    const adviceResponse = await fetch(`${API_BASE}/daily/advice/${today}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    if (adviceResponse.ok) {
+                        result += `✅ 每日建议 API: 正常 (${adviceResponse.status})\n`;
+                    } else {
+                        result += `❌ 每日建议 API: 失败 (${adviceResponse.status})\n`;
+                    }
+                } catch (e) {
+                    result += `❌ 每日建议 API: 异常 - ${e.message}\n`;
+                }
+                
+                result += '\n✅ API测试完成';
+                
+                log('apiResult', result, 'success');
+                
+            } catch (error) {
+                log('apiResult', `❌ API测试失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 页面加载时显示说明
+        window.onload = function() {
+            console.log('🔧 手动测试工具已加载');
+            console.log('请按步骤执行测试，重现Home页面白屏问题');
+        };
+    </script>
+</body>
+</html>

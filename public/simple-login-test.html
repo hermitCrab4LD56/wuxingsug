@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简单登录测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        input, button { padding: 10px; margin: 5px; }
+        .result { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; }
+        .error { background-color: #f8d7da; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>简单登录测试</h1>
+        <div>
+            <input type="text" id="phone" placeholder="手机号" value="13800138000">
+            <input type="password" id="password" placeholder="密码" value="123456">
+            <button onclick="testLogin()">测试登录</button>
+        </div>
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        async function testLogin() {
+            const phone = document.getElementById('phone').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            resultDiv.innerHTML = '正在测试登录...';
+            resultDiv.className = 'result';
+            
+            try {
+                console.log('开始登录测试');
+                console.log('请求URL:', '/api/auth/login');
+                console.log('请求数据:', { phone, password });
+                
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ phone, password })
+                });
+                
+                console.log('响应状态:', response.status);
+                console.log('响应头:', Object.fromEntries(response.headers.entries()));
+                
+                const responseText = await response.text();
+                console.log('响应文本:', responseText);
+                
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    throw new Error('响应不是有效的JSON: ' + responseText);
+                }
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<strong>登录成功!</strong><br>响应: ${JSON.stringify(data, null, 2)}`;
+                    resultDiv.className = 'result success';
+                    console.log('登录成功:', data);
+                } else {
+                    resultDiv.innerHTML = `<strong>登录失败 (${response.status})</strong><br>错误: ${JSON.stringify(data, null, 2)}`;
+                    resultDiv.className = 'result error';
+                    console.error('登录失败:', data);
+                }
+            } catch (error) {
+                console.error('请求错误:', error);
+                resultDiv.innerHTML = `<strong>请求错误:</strong><br>${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+        
+        // 页面加载时显示环境信息
+        console.log('页面加载完成');
+        console.log('当前URL:', window.location.href);
+        console.log('用户代理:', navigator.userAgent);
+    </script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>检查前端存储状态</title>
+</head>
+<body>
+    <h1>前端存储状态检查</h1>
+    <div id="results"></div>
+    
+    <script>
+        const results = document.getElementById('results');
+        
+        // 检查localStorage
+        const token = localStorage.getItem('token');
+        const storage = localStorage.getItem('wuxing-app-storage');
+        
+        let html = '<h2>localStorage内容:</h2>';
+        html += '<p><strong>token:</strong> ' + (token ? token.substring(0, 50) + '...' : '未找到') + '</p>';
+        html += '<p><strong>wuxing-app-storage:</strong> ' + (storage || '未找到') + '</p>';
+        
+        // 如果有storage，尝试解析
+        if (storage) {
+            try {
+                const parsed = JSON.parse(storage);
+                html += '<h3>解析后的storage:</h3>';
+                html += '<pre>' + JSON.stringify(parsed, null, 2) + '</pre>';
+            } catch (e) {
+                html += '<p>解析storage失败: ' + e.message + '</p>';
+            }
+        }
+        
+        // 如果有token，尝试解析JWT
+        if (token) {
+            try {
+                const parts = token.split('.');
+                if (parts.length === 3) {
+                    const payload = JSON.parse(atob(parts[1]));
+                    html += '<h3>Token payload:</h3>';
+                    html += '<pre>' + JSON.stringify(payload, null, 2) + '</pre>';
+                }
+            } catch (e) {
+                html += '<p>解析token失败: ' + e.message + '</p>';
+            }
+        }
+        
+        // 清除按钮
+        html += '<br><button onclick="clearStorage()">清除所有存储</button>';
+        html += '<button onclick="location.reload()">刷新页面</button>';
+        
+        results.innerHTML = html;
+        
+        function clearStorage() {
+            localStorage.clear();
+            alert('已清除所有localStorage数据');
+            location.reload();
+        }
+    </script>
+</body>
+</html>

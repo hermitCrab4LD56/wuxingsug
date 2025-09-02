@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试所有种子用户</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .user-test {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .test-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>种子用户登录测试</h1>
+        <p>测试所有四个种子用户的登录和信息预填功能</p>
+        
+        <div class="user-test">
+            <h3>13800138000 (张三丰)</h3>
+            <button class="test-button" onclick="testUser('13800138000', '张三丰')">测试登录</button>
+            <button class="test-button" onclick="testProfile('13800138000')">测试Profile预填</button>
+            <div id="result-13800138000" class="result" style="display:none;"></div>
+        </div>
+        
+        <div class="user-test">
+            <h3>13900139000 (李小龙)</h3>
+            <button class="test-button" onclick="testUser('13900139000', '李小龙')">测试登录</button>
+            <button class="test-button" onclick="testProfile('13900139000')">测试Profile预填</button>
+            <div id="result-13900139000" class="result" style="display:none;"></div>
+        </div>
+        
+        <div class="user-test">
+            <h3>13700137000 (王阳明)</h3>
+            <button class="test-button" onclick="testUser('13700137000', '王阳明')">测试登录</button>
+            <button class="test-button" onclick="testProfile('13700137000')">测试Profile预填</button>
+            <div id="result-13700137000" class="result" style="display:none;"></div>
+        </div>
+        
+        <div class="user-test">
+            <h3>13600136000 (孔子)</h3>
+            <button class="test-button" onclick="testUser('13600136000', '孔子')">测试登录</button>
+            <button class="test-button" onclick="testProfile('13600136000')">测试Profile预填</button>
+            <div id="result-13600136000" class="result" style="display:none;"></div>
+        </div>
+        
+        <div class="user-test">
+            <h3>批量测试</h3>
+            <button class="test-button" onclick="testAllUsers()">测试所有用户</button>
+            <div id="result-all" class="result" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001/api';
+        
+        // 添加错误处理和调试日志
+        console.log('测试页面加载完成，API_BASE:', API_BASE);
+        
+        function showResult(userId, message, type = 'info') {
+            const resultDiv = document.getElementById(`result-${userId}`);
+            resultDiv.style.display = 'block';
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = message;
+        }
+        
+        async function testUser(phone, expectedName) {
+            try {
+                console.log(`开始测试用户: ${phone} (${expectedName})`);
+                showResult(phone, '正在测试登录...', 'info');
+                
+                // 测试登录
+                console.log(`发送登录请求到: ${API_BASE}/auth/login`);
+                const loginResponse = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phone: phone,
+                        password: '123456'
+                    })
+                });
+                
+                console.log(`登录响应状态: ${loginResponse.status}`);
+                const loginData = await loginResponse.json();
+                console.log('登录响应数据:', loginData);
+                
+                if (!loginData.success) {
+                    showResult(phone, `登录失败: ${loginData.message}`, 'error');
+                    return;
+                }
+                
+                const token = loginData.data.token;
+                const user = loginData.data.user;
+                
+                // 验证用户名
+                if (user.name !== expectedName) {
+                    showResult(phone, `❌ 用户名不匹配！期望: ${expectedName}, 实际: ${user.name}`, 'error');
+                    return;
+                }
+                
+                // 测试获取profile
+                const profileResponse = await fetch(`${API_BASE}/auth/profile`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const profileData = await profileResponse.json();
+                
+                if (!profileData.success) {
+                    showResult(phone, `获取Profile失败: ${profileData.message}`, 'error');
+                    return;
+                }
+                
+                const profileUser = profileData.data.user;
+                
+                showResult(phone, `✅ 登录成功！\n用户名: ${profileUser.name}\n手机号: ${profileUser.phone}\n性别: ${profileUser.gender}\n出生日期: ${profileUser.birth_date}\n出生时间: ${profileUser.birth_time}`, 'success');
+                
+            } catch (error) {
+                console.error(`用户 ${phone} 测试失败:`, error);
+                showResult(phone, `❌ 测试失败: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testProfile(phone) {
+            try {
+                showResult(phone, '正在测试Profile预填...', 'info');
+                
+                // 先登录获取token
+                const loginResponse = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phone: phone,
+                        password: '123456'
+                    })
+                });
+                
+                const loginData = await loginResponse.json();
+                if (!loginData.success) {
+                    showResult(phone, `登录失败: ${loginData.message}`, 'error');
+                    return;
+                }
+                
+                const token = loginData.data.token;
+                
+                // 获取八字信息
+                const baziResponse = await fetch(`${API_BASE}/bazi/info`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const baziData = await baziResponse.json();
+                
+                if (!baziData.success) {
+                    showResult(phone, `获取八字信息失败: ${baziData.message}`, 'error');
+                    return;
+                }
+                
+                const bazi = baziData.data;
+                
+                showResult(phone, `✅ Profile预填测试成功！\n八字: ${bazi.year} ${bazi.month} ${bazi.day} ${bazi.hour}\n性格: ${bazi.personality}\n事业: ${bazi.career}`, 'success');
+                
+            } catch (error) {
+                showResult(phone, `❌ Profile测试失败: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testAllUsers() {
+            const users = [
+                { phone: '13800138000', name: '张三丰' },
+                { phone: '13900139000', name: '李小龙' },
+                { phone: '13700137000', name: '王阳明' },
+                { phone: '13600136000', name: '孔子' }
+            ];
+            
+            showResult('all', '正在测试所有用户...', 'info');
+            
+            let results = [];
+            
+            for (const user of users) {
+                try {
+                    // 测试登录
+                    const loginResponse = await fetch(`${API_BASE}/auth/login`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            phone: user.phone,
+                            password: '123456'
+                        })
+                    });
+                    
+                    const loginData = await loginResponse.json();
+                    
+                    if (loginData.success && loginData.data.user.name === user.name) {
+                        results.push(`✅ ${user.phone} (${user.name}) - 登录成功`);
+                    } else {
+                        results.push(`❌ ${user.phone} (${user.name}) - 登录失败`);
+                    }
+                    
+                } catch (error) {
+                    results.push(`❌ ${user.phone} (${user.name}) - 测试异常: ${error.message}`);
+                }
+            }
+            
+            showResult('all', results.join('\n'), results.every(r => r.includes('✅')) ? 'success' : 'error');
+        }
+    </script>
+</body>
+</html>
