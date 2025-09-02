@@ -1,4 +1,6 @@
-﻿api/
 node_modules/
 .env
 *.log
+*.html
+supabase/
+migrations/
