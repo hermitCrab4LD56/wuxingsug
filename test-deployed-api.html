@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>测试部署版本API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>测试部署版本API</h1>
+    <div id="results"></div>
+    
+    <button onclick="testLogin()">测试登录API</button>
+    <button onclick="testProfile()">测试获取用户信息API</button>
+    <button onclick="clearResults()">清除结果</button>
+    
+    <script>
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            document.getElementById('results').appendChild(div);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function testLogin() {
+            addResult('开始测试登录API...');
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phone: '13800138000',
+                        password: '123456'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    addResult('登录成功！', 'success');
+                    addResult(`用户信息: ${JSON.stringify(data.data.user, null, 2)}`, 'success');
+                    
+                    // 保存token用于后续测试
+                    if (data.data.token) {
+                        localStorage.setItem('test_token', data.data.token);
+                        addResult('Token已保存', 'success');
+                    }
+                } else {
+                    addResult(`登录失败: ${data.message || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                addResult(`登录请求失败: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testProfile() {
+            addResult('开始测试获取用户信息API...');
+            
+            const token = localStorage.getItem('test_token');
+            if (!token) {
+                addResult('请先执行登录测试获取token', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/auth/profile', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    addResult('获取用户信息成功！', 'success');
+                    addResult(`用户信息: ${JSON.stringify(data.data, null, 2)}`, 'success');
+                } else {
+                    addResult(`获取用户信息失败: ${data.message || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                addResult(`获取用户信息请求失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 页面加载时显示基本信息
+        window.addEventListener('load', function() {
+            addResult('页面加载完成');
+            addResult(`当前URL: ${window.location.href}`);
+            addResult('点击按钮开始测试API...');
+        });
+    </script>
+</body>
+</html>

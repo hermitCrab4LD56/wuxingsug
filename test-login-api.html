@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录API测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>登录API测试</h1>
+        <p>当前URL: <span id="currentUrl"></span></p>
+        <p>API Base URL: <span id="apiBaseUrl"></span></p>
+        
+        <div class="form-group">
+            <label for="phone">手机号:</label>
+            <input type="text" id="phone" value="13800138000" placeholder="请输入手机号">
+        </div>
+        
+        <div class="form-group">
+            <label for="password">密码:</label>
+            <input type="password" id="password" value="123456" placeholder="请输入密码">
+        </div>
+        
+        <button onclick="testLogin()">测试登录</button>
+        <button onclick="testHealthCheck()">测试健康检查</button>
+        <button onclick="clearResults()">清除结果</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // 显示当前URL和API配置
+        document.getElementById('currentUrl').textContent = window.location.href;
+        
+        // 动态设置API base URL
+        const isProduction = window.location.hostname !== 'localhost';
+        const baseURL = isProduction ? '/api' : 'http://localhost:3001/api';
+        document.getElementById('apiBaseUrl').textContent = baseURL;
+        
+        function addResult(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `result ${type}`;
+            messageDiv.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            resultDiv.appendChild(messageDiv);
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function clearResults() {
+            document.getElementById('result').innerHTML = '';
+        }
+        
+        async function testHealthCheck() {
+            addResult('开始健康检查测试...');
+            
+            try {
+                const url = `${baseURL}/health`;
+                addResult(`请求URL: ${url}`);
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                addResult(`响应状态: ${response.status} ${response.statusText}`);
+                
+                const data = await response.json();
+                addResult(`响应数据: ${JSON.stringify(data, null, 2)}`, 'success');
+                
+            } catch (error) {
+                addResult(`健康检查失败: ${error.message}`, 'error');
+                console.error('健康检查错误:', error);
+            }
+        }
+        
+        async function testLogin() {
+            const phone = document.getElementById('phone').value;
+            const password = document.getElementById('password').value;
+            
+            if (!phone || !password) {
+                addResult('请输入手机号和密码', 'error');
+                return;
+            }
+            
+            addResult('开始登录测试...');
+            addResult(`手机号: ${phone}`);
+            addResult(`密码: ${password}`);
+            
+            try {
+                const url = `${baseURL}/auth/login`;
+                addResult(`请求URL: ${url}`);
+                
+                const requestData = { phone, password };
+                addResult(`请求数据: ${JSON.stringify(requestData, null, 2)}`);
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                addResult(`响应状态: ${response.status} ${response.statusText}`);
+                addResult(`响应头: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}`);
+                
+                const data = await response.json();
+                addResult(`响应数据: ${JSON.stringify(data, null, 2)}`);
+                
+                if (response.ok && data.success) {
+                    addResult('登录成功!', 'success');
+                    if (data.data && data.data.token) {
+                        addResult(`Token: ${data.data.token}`);
+                        localStorage.setItem('token', data.data.token);
+                        addResult('Token已保存到localStorage', 'success');
+                    }
+                    if (data.data && data.data.user) {
+                        addResult(`用户信息: ${JSON.stringify(data.data.user, null, 2)}`);
+                    }
+                } else {
+                    addResult(`登录失败: ${data.message || '未知错误'}`, 'error');
+                }
+                
+            } catch (error) {
+                addResult(`登录请求失败: ${error.message}`, 'error');
+                console.error('登录错误:', error);
+            }
+        }
+        
+        // 页面加载完成后自动显示一些信息
+        window.addEventListener('load', function() {
+            addResult('页面加载完成');
+            addResult(`当前环境: ${isProduction ? '生产环境' : '开发环境'}`);
+            addResult(`User Agent: ${navigator.userAgent}`);
+        });
+    </script>
+</body>
+</html>
