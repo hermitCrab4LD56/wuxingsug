@@ -4,3 +4,20 @@ node_modules/
 *.html
 supabase/
 migrations/
+.git/
+.trae/
+docs/
+*.md
+*.txt
+test-*.html
+debug-*.html
+manual-test.html
+auto-login.html
+final-test.html
+check-frontend-storage.html
+clear-cache.html
+tsconfig.tsbuildinfo
+.nvmrc
+eslint.config.js
+nodemon.json
+et --hard 63b3ea5
