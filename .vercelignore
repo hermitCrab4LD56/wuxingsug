@@ -1,7 +1,4 @@
-node_modules
-build
-dist
-.git
-.trae
-.log
-.figma
+﻿api/
+node_modules/
+.env
+*.log
