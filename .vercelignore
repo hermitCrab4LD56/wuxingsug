@@ -19,4 +19,3 @@ tsconfig.tsbuildinfo
 .nvmrc
 eslint.config.js
 nodemon.json
-et --hard 63b3ea5
